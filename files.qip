@@ -40,3 +40,5 @@ set_global_assignment -name VERILOG_FILE mdv.v
 set_global_assignment -name VERILOG_FILE zx8301.v
 set_global_assignment -name VERILOG_FILE zx8302.v
 set_global_assignment -name SYSTEMVERILOG_FILE QL.sv
+set_global_assignment -name VERILOG_FILE joydb9md.v
+set_global_assignment -name VERILOG_FILE joydb15.v
