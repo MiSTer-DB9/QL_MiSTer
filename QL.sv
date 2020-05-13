@@ -183,8 +183,7 @@ pll pll
 	.refclk(CLK_50M),
 	.rst(0),
 	.outclk_0(clk_sys),
-	.outclk_1(SDRAM_CLK),
-	.outclk_2(clk_11m),
+	.outclk_1(clk_11m),
 	.locked(pll_locked)
 );
 
@@ -240,6 +239,7 @@ wire [10:0] ps2_key;
 wire [32:0] TIMESTAMP;
 
 wire        forced_scandoubler;
+wire [21:0] gamma_bus;
 
 // F4 F3 F2 F1 U D L R 
 wire [31:0] joystick_0 = joydb_1ena ? (OSD_STATUS? 32'b000000 : joydb_1[7:0]) : joystick_0_USB;
@@ -286,6 +286,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 	.buttons(buttons),
 	.status(status),
 	.forced_scandoubler(forced_scandoubler),
+	.gamma_bus(gamma_bus),
 	
 	.TIMESTAMP(TIMESTAMP),
 
@@ -413,9 +414,11 @@ assign VGA_F1 = 0;
 
 assign CLK_VIDEO = clk_sys;
 
-video_mixer #(.HALF_DEPTH(1)) video_mixer
+video_mixer #(.HALF_DEPTH(1), .GAMMA(1)) video_mixer
 (
 	.*,
+
+	.clk_vid(CLK_VIDEO),
 	.ce_pix(ce_pix),
 	.ce_pix_out(CE_PIXEL),
 	
@@ -582,7 +585,7 @@ wire cpu_idle = (cpu_busstate == 2'b01);
 reg cpu_enable;
 always @(posedge clk_sys) if(ce_bus_n) cpu_enable <= cpu_cycle || cpu_idle;
 
-TG68KdotC_Kernel #(0,0,0,0,0,0) tg68k
+TG68KdotC_Kernel #(0,0,0,0,0,0, 0,1) tg68k
 (
 	.clk            ( clk_sys      ),
 	.nReset         ( ~reset       ),
@@ -593,7 +596,7 @@ TG68KdotC_Kernel #(0,0,0,0,0,0) tg68k
 	.berr           ( 1'b0         ),
 	.clr_berr       ( 1'b0         ),
 	.CPU            ( 2'b00        ),   // 00=68000
-	.addr           ( cpu_addr     ),
+	.addr_out       ( cpu_addr     ),
 	.data_write     ( cpu_dout     ),
 	.nUDS           ( cpu_ds[1]    ),
 	.nLDS           ( cpu_ds[0]    ),
