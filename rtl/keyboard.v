@@ -22,6 +22,7 @@
 
 module keyboard ( 
 	input clk,
+   input ce_11m,
 	input reset,
 
 	// ps2 interface	
@@ -59,28 +60,34 @@ wire x_f3    = specialD[9] || js0[0];
 wire x_f4    = specialD[10]|| js0[3];
 wire x_f5    = specialD[11]|| js0[4];
 
-// divide 11mhz clock down to ~1khz some delay
-wire clk_delay = clk_delay_cnt[9];
-reg [9:0] clk_delay_cnt;  // 11mhz/1024
-always @(posedge clk)
-	clk_delay_cnt <= clk_delay_cnt + 10'd1;
+// Divide 11MHz clock down to ~1khz some delay
+reg ce_1k;
+always @(posedge clk) begin
+	reg [12:0] clk_delay_cnt;  // 11MHz / 8192 = 1.342kHz
+
+	ce_1k <= 0;
+	if (ce_11m) begin
+		clk_delay_cnt <= clk_delay_cnt + 1'd1;
+		ce_1k <= !clk_delay_cnt;
+	end
+end
 
 // The "main" key of a combined modifier key needs to be delayed. Otherwise
 // the QL will not accept it. E.g. when pressing CTRL-LEFT, the CTRL key needs
 // to be pressed first. Pressing both at the same time won't work. We thus delay
 // the "other" key like e.g. the LEFT key. Both are released at the same time
 wire [11:1] specialD;
-delay delay_1( .clk(clk_delay), .reset(reset), .in(special[1]), .out(specialD[1]) );
-delay delay_2( .clk(clk_delay), .reset(reset), .in(special[2]), .out(specialD[2]) );
-delay delay_3( .clk(clk_delay), .reset(reset), .in(special[3]), .out(specialD[3]) );
-delay delay_4( .clk(clk_delay), .reset(reset), .in(special[4]), .out(specialD[4]) );
-delay delay_5( .clk(clk_delay), .reset(reset), .in(special[5]), .out(specialD[5]) );
-delay delay_6( .clk(clk_delay), .reset(reset), .in(special[6]), .out(specialD[6]) );
-delay delay_7( .clk(clk_delay), .reset(reset), .in(special[7]), .out(specialD[7]) );
-delay delay_8( .clk(clk_delay), .reset(reset), .in(special[8]), .out(specialD[8]) );
-delay delay_9( .clk(clk_delay), .reset(reset), .in(special[9]), .out(specialD[9]) );
-delay delay_10(.clk(clk_delay), .reset(reset), .in(special[10]),.out(specialD[10]));
-delay delay_11(.clk(clk_delay), .reset(reset), .in(special[11]),.out(specialD[11]));
+delay delay_1( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[1]), .out(specialD[1]) );
+delay delay_2( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[2]), .out(specialD[2]) );
+delay delay_3( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[3]), .out(specialD[3]) );
+delay delay_4( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[4]), .out(specialD[4]) );
+delay delay_5( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[5]), .out(specialD[5]) );
+delay delay_6( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[6]), .out(specialD[6]) );
+delay delay_7( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[7]), .out(specialD[7]) );
+delay delay_8( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[8]), .out(specialD[8]) );
+delay delay_9( .clk(clk), .ce(ce_1k), .reset(reset), .in(special[9]), .out(specialD[9]) );
+delay delay_10(.clk(clk), .ce(ce_1k), .reset(reset), .in(special[10]),.out(specialD[10]));
+delay delay_11(.clk(clk), .ce(ce_1k), .reset(reset), .in(special[11]),.out(specialD[11]));
 
 // map the special keys onto the matrix which is then or'd with the
 // normal matrix
@@ -95,7 +102,7 @@ wire [63:0] special_matrix = {
 	2'b00, x_f5, x_f3, x_f2, 1'b0, x_f1, x_f4
 };
 
-// ================================= leyout =============================
+// ================================= layout =============================
 // F1     ESC  1   2   3   4   5   6   7   8   9   0   -   =   £   \
 // F2     TAB    Q   W   E   R   T   Y   U   I   O   P   [   ]
 // F3     CAPS    A   S   D   F   G   H   J   K   L   ;   '      ENTER
@@ -232,17 +239,18 @@ endmodule
 // add delay to special combo keys
 module delay (
 	input clk,
+	input ce,
 	input reset,
 	input in,
 	output out
 );
 
-reg [3:0] delay_cnt;
-assign out = (delay_cnt == 15);
-wire delay_reset = reset || !in;
-always @(posedge clk or posedge delay_reset) begin
-	if(delay_reset)          delay_cnt <= 4'd0;
-	else if(delay_cnt != 15) delay_cnt <= delay_cnt + 4'd1;
+reg [4:0] delay_cnt;
+assign out = delay_cnt[4] & in;
+
+always @(posedge clk) begin
+	if(reset | ~in)           delay_cnt <= 0;
+	else if(ce & ~&delay_cnt) delay_cnt <= delay_cnt + 1'd1;
 end
 
 endmodule // delay
