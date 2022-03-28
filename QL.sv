@@ -31,7 +31,7 @@ module emu
 	input         RESET,
 
 	//Must be passed to hps_io module
-	inout  [45:0] HPS_BUS,
+	inout  [48:0] HPS_BUS,
 
 	//Base video clock. Usually equals to CLK_SYS.
 	output        CLK_VIDEO,
@@ -57,6 +57,7 @@ module emu
 
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
+	output        HDMI_FREEZE,
 
 `ifdef MISTER_FB
 	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
@@ -194,6 +195,7 @@ assign LED_DISK  = {1'b1, status[0]};
 assign LED_POWER = 0;
 assign BUTTONS   = 0;
 assign VGA_SCALER= 0;
+assign HDMI_FREEZE = 0;
 
 video_freak video_freak
 (
@@ -211,7 +213,7 @@ video_freak video_freak
 `include "build_id.v" 
 parameter CONF_STR = {
 	"QL;;",
-	"S0,WIN,Mount HD image;",	
+	"SC0,WIN,Mount HD image;",	
 	"-;",
 	"F2,MDV,Load MDV image;",
 	"O2,MDV direction,normal,reverse;",
@@ -425,12 +427,10 @@ joy_db15 joy_db15
   .joystick2 ( JOYDB15_2 )	  
 );
 
-hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
+hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
-
-	.conf_str(CONF_STR),
 
 	.buttons(buttons),
 	.status(status),
@@ -447,13 +447,14 @@ hps_io #(.STRLEN($size(CONF_STR)>>3), .WIDE(1)) hps_io
 	.ioctl_wait(ioctl_wait),
 
 	.joy_raw(OSD_STATUS? (joydb_1[5:0]|joydb_2[5:0]) : 6'b000000 ),
-	.sd_lba(sd_lba),
+	
+	.sd_lba('{sd_lba}),
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_ack(sd_ack),
 	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
-	.sd_buff_din(sd_buff_din),
+	.sd_buff_din('{sd_buff_din}),
 	.sd_buff_wr(sd_buff_wr),
 	.img_mounted(img_mounted),
 	.img_readonly(img_readonly),
@@ -672,6 +673,7 @@ video_mixer #(.HALF_DEPTH(1), .GAMMA(1)) video_mixer
 	.*,
 	.scandoubler(scale || forced_scandoubler),
 	.hq2x(scale==1),
+	.freeze_sync(),
 
 	.R({4{video_r}}),
 	.G({4{video_g}}),
